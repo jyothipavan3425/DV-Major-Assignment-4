@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Heat Map</title>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        body {
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        svg {
+            width: 95vw; 
+            height: 100vh; /* Increase the max-height */
+            
+        }
+
+        #updatedTime {
+            font-family: sans-serif;
+            font-size: 18pt;
+            margin-top: 20px;
+        }
+
+        .slider {
+            width: 50%;
+            margin: 25px auto;
+        }
+
+        .brush-slider {
+            width: 50%;
+            margin: 30px auto;
+        }
+    </style>
+
+</head>
+
+<body>
+    <h1>Interactive Heat Map </h1>
+    <svg width="95vw" viewbox="0 0 900 600"></svg>
+
+    <div id='updatedTime'>
+    </div>
+
+    <div>
+        Threshold:
+        <input type="range" min="0" max="600" value="900" class="slider" id="thresholdSlider" step="10"
+            oninput="updateThreshold(this.value)" />
+        <span id="thresholdValue">500</span>
+    </div>
+
+    <div>
+        Density Slider:
+        <input type="range" min="0" max="700" value="900" class="brush-slider" id="brushSlider" step="10"
+            oninput="updateBrush(this.value)" />
+        <span id="brushValue">700</span>
+    </div>
+
+    <script>
+        const dicomFile = 'https://raw.githubusercontent.com/jyothipavan3425/DV-Major-Assignment-4/main/Data_CT.csv'
+        let updatedSvg = d3.select("svg");
+        let brushValue = 600; // Initial brush value
+
+        const Path = d3.geoPath();
+
+        function plotUpdatedContour(fileName, threshold, brushThreshold) {
+            d3.csv(fileName).then(function (data) {
+                let m = 512,
+                    n = 512;
+
+                let values = [];
+                data.forEach(function (d) {
+                    values.push(+d[0])
+                });
+
+                const minTemp = d3.min(values);
+                const maxTemp = d3.max(values);
+
+                let colors = d3.scaleLinear()
+                .domain(d3.range(350,2500,parseInt(Math.abs(2500-350)/6)))
+                .range(["#ffff", "#3e5eba", "#2b83ba","#abdda4", "#ffffbf", "#fdae61", "#d7191c"])
+                .interpolate(d3.interpolateHcl);
+
+                let contours = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(minTemp, maxTemp, threshold))
+                    (values);
+
+                updatedSvg.append("g").attr("class", "contours")
+                    .selectAll("path")
+                    .data(contours)
+                    .enter()
+                    .append("path")
+                    .attr("d", function (d) {
+                        return Path(d)
+                    })
+                    .attr("stroke", "black")
+                    .attr("stroke-width", ".1px")
+                    .attr("stroke-linejoin", "round")
+                    .attr("fill",
+                        function (d) {
+                            return colors(d.value)
+                        })
+                    .attr("fill-opacity", 1); // Add fill-opacity to ensure complete filling
+
+                // Update the brush value and call the brushing function
+                brushValue = brushThreshold || brushValue;
+                updateBrush(brushValue);
+            })
+        }
+
+        function updateThreshold(value) {
+            document.getElementById('thresholdValue').innerText = value;
+            // Update the plot based on the threshold value
+            plotUpdatedContour(dicomFile, value, brushValue);
+        }
+
+        function updateBrush(value) {
+            document.getElementById('brushValue').innerText = value;
+            
+        }
+
+        plotUpdatedContour(dicomFile, 100, 800);
+    </script>
+</body>
+</html>
